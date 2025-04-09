@@ -37,32 +37,56 @@ function git-acc(){
       unset respond
   }
 
+  local function list_accounts() {
+      if [ -f "$gitacc_locate" ]; then
+          Echo_Color g "List of added Git accounts:"
+          cat "$gitacc_locate" | awk '
+              /\[.*\]/ { 
+                  if (acc_name != "") {
+                      print ""  # Add a blank line between accounts
+                  }
+                  acc_name = substr($0, 2, length($0) - 2); 
+                  printf "Account: %s\n", acc_name; 
+              } 
+              /name =/ { printf "  Name: %s\n", $3; }
+              /email =/ { printf "  Email: %s\n", $3; }
+              /private_key =/ { printf "  Private Key: %s\n", $3; }
+              /public_key =/ { printf "  Public Key: %s\n", $3; }
+              END { if (acc_name != "") print "" }  # Add a final blank line if there are accounts
+          '
+      else
+          Echo_Color r "No Git accounts have been added yet."
+      fi
+  }
+
+
   local function show_script_help(){
       local help='
-            +---------------+
-            |    git-acc    |
-            +---------------+
+          +---------------+
+          |    git-acc    |
+          +---------------+
 
-    SYNOPSIS
+  SYNOPSIS
 
-      git-acc [account]|[option]
+    git-acc [account]|[option]
 
-    OPTIONS
+  OPTIONS
 
-      [account]               use which accounts on this shell, type the account name that you register.
-      -h, --help              print help information.
-      -add, --add_account     build git_account info. & ssh-key.
-          -t, --type          ssh-key types, follow `ssh-keygen` rule, 
-                              types: dsa | ecdsa | ecdsa-sk | ed25519 | ed25519-sk | rsa(default)
-      -rm, --remove_account   remove git_account info. & ssh-key from this device
-      -out, --logout          logout your current ssh-acc.
+    [account]               use which accounts on this shell, type the account name that you register.
+    -h, --help              print help information.
+    -l, --list              list all added Git accounts.
+    -add, --add_account     build git_account info. & ssh-key.
+        -t, --type          ssh-key types, follow `ssh-keygen` rule, 
+                            types: dsa | ecdsa | ecdsa-sk | ed25519 | ed25519-sk | rsa(default)
+    -rm, --remove_account   remove git_account info. & ssh-key from this device
+    -out, --logout          logout your current ssh-acc.
 
+  EXAMPLES
 
-    EXAMPLES
-
-      $ git-acc tw-yshuang
-    '
-    echo $help
+    $ git-acc tw-yshuang
+    $ git-acc --list
+  '
+      echo $help
   }
 
   local function _acc(){
@@ -84,13 +108,24 @@ function git-acc(){
   local accnames=()   # all the accnames that is in the $gitacc_locate
   local overWrite=0   # is recover old ssh-key
   local acc_info=()   # single account info, ([tag] name mail private_key publish_key)
-  if [ "$#" -gt 0 ]; then
+  # if [ "$#" -gt 0 ]; then
+    # Return --help output if no arguments are given
+    if [ "$#" -eq 0 ]; then
+      show_script_help
+      return 1
+    fi
+    
     while [ "$#" -gt 0 ]; do
       case "$1" in
         # Help
         '-h'|'--help')
           show_script_help
           unset -f show_script_help
+          return 1
+        ;;
+        # List accounts
+        '-l'|'--list')
+          list_accounts
           return 1
         ;;
         # build git_account info. & ssh-key.
@@ -122,7 +157,7 @@ function git-acc(){
         ;;
       esac
     done
-  fi
+  # fi
 
   if [ "${#GIT_ACC_ARG[*]}" -gt 1 ] || [ "${#GIT_ACC_ARG[*]}" -ge 1 -a "${#GIT_ACC[*]}" -ge 1 ]; then
     Echo_Color r 'Wrong: Mutiple Parameters!!\n' # too many input args or accounts 
